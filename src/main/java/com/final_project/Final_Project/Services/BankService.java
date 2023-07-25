@@ -89,19 +89,26 @@ public class BankService {
     public String takeMoney(Long id, Long money) {
         try {
             Balance balance = JsonUtil.jsonToBalance(getBalance(id));
-            Long newAmount = balance.getBalance() - money;
-            if (newAmount >= 0) {
-                balance.setBalance(newAmount);
-                balanceRepository.save(balance);
-                operation_log(id, TAKE_MONEY);
-                return JsonUtil.writeOperationResultToJson(new OperationResult()
-                        .setResult(1)
-                        .setOperationMessage("Со счета User " + id + " снято " + money));
-            } else {
+            try {
+                Long newAmount = balance.getBalance() - money;
+                if (newAmount >= 0) {
+                    balance.setBalance(newAmount);
+                    balanceRepository.save(balance);
+                    operation_log(id, TAKE_MONEY);
+                    return JsonUtil.writeOperationResultToJson(new OperationResult()
+                            .setResult(1)
+                            .setOperationMessage("Со счета User " + id + " снято " + money));
+                } else {
+                    return JsonUtil.writeOperationResultToJson(new OperationResult()
+                            .setResult(0)
+                            .setOperationMessage("Недостаточно средств"));
+                }
+            } catch (NullPointerException e) {
                 return JsonUtil.writeOperationResultToJson(new OperationResult()
                         .setResult(0)
-                        .setOperationMessage("Недостаточно средств"));
+                        .setOperationMessage("Данного пользователя не существует"));
             }
+
         } catch (Exception e) {
             return JsonUtil.writeOperationResultToJson(new OperationResult()
                     .setResult(-1)
@@ -113,14 +120,21 @@ public class BankService {
     public String putMoney(Long id, Long money) {
         try {
             Balance balance = JsonUtil.jsonToBalance(getBalance(id));
-            Long newAmount = balance.getBalance() + money;
-            balance.setBalance(newAmount);
-            balanceRepository.save(balance);
-            operation_log(id, PUT_MONEY);
+            try {
+                Long newAmount = balance.getBalance() + money;
+                balance.setBalance(newAmount);
+                balanceRepository.save(balance);
+                operation_log(id, PUT_MONEY);
+            } catch (NullPointerException e) {
+                return JsonUtil.writeOperationResultToJson(new OperationResult()
+                        .setResult(0)
+                        .setOperationMessage("Данного пользователя не существует"));
+            }
             return JsonUtil.writeOperationResultToJson(new OperationResult()
                     .setResult(1)
                     .setOperationMessage("На счет User " + id + " добавлено " + money));
         } catch (Exception e) {
+            e.printStackTrace();
             return JsonUtil.writeOperationResultToJson(new OperationResult()
                     .setResult(0)
                     .setOperationError(Arrays.toString(e.getStackTrace())));
@@ -169,18 +183,35 @@ public class BankService {
 
     public String transferMoney(Long userSenderId, Long userReceiverId, Long money) {
         try {
-            int result = JsonUtil.jsonToOperationResult(takeMoney(userSenderId, money)).getResult();
-            if (result == 1) {
+            if(userSenderId.equals(userReceiverId)){
+                return JsonUtil.writeOperationResultToJson(new OperationResult()
+                        .setResult(0)
+                        .setOperationMessage("У отправителя и получателя не может быть одинаковый id"));
+            }
+            int resultSender = JsonUtil.jsonToOperationResult(takeMoney(userSenderId, money)).getResult();
+            int resultReceiver = JsonUtil.jsonToOperationResult(putMoney(userReceiverId, money)).getResult();
+            if (resultSender == 0 || resultReceiver == 0) {
+                if (JsonUtil.jsonToOperationResult(takeMoney(userSenderId, money)).getOperationMessage().equals("Данного пользователя не существует")) {
+                    return JsonUtil.writeOperationResultToJson(new OperationResult()
+                            .setResult(0)
+                            .setOperationMessage("Отправителя не существует"));
+                } else if (JsonUtil.jsonToOperationResult(putMoney(userReceiverId, money))
+                        .getOperationMessage()
+                        .equals("Данного пользователя не существует")) {
+                    return JsonUtil.writeOperationResultToJson(new OperationResult()
+                            .setResult(0)
+                            .setOperationMessage("Получателя не существует"));
+                }
+                return JsonUtil.writeOperationResultToJson(new OperationResult()
+                        .setResult(0)
+                        .setOperationMessage("Недостаточно средств у User " + userSenderId));
+            } else if (resultSender == 1 && resultReceiver == 1) {
                 putMoney(userReceiverId, money);
                 operation_log(userSenderId, TRANSFER_MONEY);
                 return JsonUtil.writeOperationResultToJson(new OperationResult()
                         .setResult(1)
                         .setOperationMessage("User " + userSenderId + " отправил " + money + " user " + userReceiverId));
-            } else if (result == 0){
-                return JsonUtil.writeOperationResultToJson(new OperationResult()
-                        .setResult(0)
-                        .setOperationMessage("Недостаточно средств у User " + userSenderId));
-            }else {
+            } else {
                 return JsonUtil.writeOperationResultToJson(new OperationResult()
                         .setResult(0)
                         .setOperationMessage("Произошла ошибка"));
