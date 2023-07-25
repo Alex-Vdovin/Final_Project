@@ -7,3 +7,5 @@
 4. Перевод денег с баланса userSenderId на баланс userReceiverId /transferMoney - требует параметры userSenderId пользователя отправителя, userReceiverId пользователя получателя и money количество денег. Возвращает JSON OperationResult с информацией об операции
 5. Получение информации об операциях пользователя /getOperationList + параметр id пользователя. Вовзращает JSON OperationList со списком операций (на данный момент функционал ограничений по времени "от" и "до" не прописан)
 6. Метод operation_log - вносит операцию об операциях в БД
+7. ![Структура БД](https://github.com/Alex-Vdovin/Final_Project/assets/110051937/ee5e0e9c-e0bb-4fd6-92f0-844d59ba1d80)
+
