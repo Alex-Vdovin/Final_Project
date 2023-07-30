@@ -7,6 +7,7 @@ import com.final_project.Final_Project.UtilityClasses.OperationResult;
 import com.final_project.Final_Project.enums.OperationsTypes;
 import com.final_project.Final_Project.repository.BalanceRepository;
 import com.final_project.Final_Project.repository.OperationsRepository;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
