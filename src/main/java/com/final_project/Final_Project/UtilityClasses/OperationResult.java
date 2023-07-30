@@ -1,6 +1,4 @@
-package com.final_project.Final_Project.entity;
-
-import java.util.List;
+package com.final_project.Final_Project.UtilityClasses;
 
 public class OperationResult {
     int result;

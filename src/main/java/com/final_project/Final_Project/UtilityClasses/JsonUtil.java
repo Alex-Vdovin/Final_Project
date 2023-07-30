@@ -1,8 +1,7 @@
 package com.final_project.Final_Project.UtilityClasses;
 
 import com.final_project.Final_Project.entity.Balance;
-import com.final_project.Final_Project.entity.Operation;
-import com.final_project.Final_Project.entity.OperationResult;
+import com.final_project.Final_Project.entity.UserOperation;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -28,7 +27,7 @@ public class JsonUtil {
         return new Gson().fromJson(json, OperationResult.class);
     }
 
-    public static String writeOperationListToJson(List<Operation> operationList) {
+    public static String writeOperationListToJson(List<UserOperation> operationList) {
         return new GsonBuilder().setPrettyPrinting().create().toJson(operationList);
     }
 }

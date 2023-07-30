@@ -2,8 +2,9 @@ package com.final_project.Final_Project.Services;
 
 import com.final_project.Final_Project.UtilityClasses.JsonUtil;
 import com.final_project.Final_Project.entity.Balance;
-import com.final_project.Final_Project.entity.Operation;
-import com.final_project.Final_Project.entity.OperationResult;
+import com.final_project.Final_Project.entity.UserOperation;
+import com.final_project.Final_Project.UtilityClasses.OperationResult;
+import com.final_project.Final_Project.enums.OperationsTypes;
 import com.final_project.Final_Project.repository.BalanceRepository;
 import com.final_project.Final_Project.repository.OperationsRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,24 +16,21 @@ import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.query.Query;
 import org.springframework.stereotype.Service;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Root;
+import javax.persistence.NoResultException;
 import java.sql.Timestamp;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
+
+import static com.final_project.Final_Project.enums.OperationsTypes.*;
 
 @Service
 @RequiredArgsConstructor
 public class BankService {
     private final BalanceRepository balanceRepository;
     private final OperationsRepository operationsRepository;
-    private static final String PUT_MONEY = "PUT_MONEY";
-    private static final String TAKE_MONEY = "TAKE_MONEY";
-    private static final String TRANSFER_MONEY = "TRANSFER_MONEY";
-    private static final String GET_BALANCE = "GET_BALANCE";
 
     public String getBalance(Long id) {
         try {
@@ -51,34 +49,30 @@ public class BankService {
                         .setResult(-1)
                         .setOperationError(Arrays.toString(e.getStackTrace())));
             }
-
-            Session session = sessionFactory.openSession();
-            session.beginTransaction();
-            CriteriaBuilder criteriaBuilder = session.getCriteriaBuilder();
-            CriteriaQuery<Balance> query = criteriaBuilder.createQuery(Balance.class);
-            Root<Balance> root = query.from(Balance.class);
-            query.select(root);
-
-            Query<Balance> quers = session.createQuery(query);
-            List<Balance> balances = quers.getResultList();
-            if (!balances.isEmpty()) {
-                Optional<Balance> result;
-                result = balances.stream().filter(b -> b.getId().equals(id)).findFirst();
-                if (!result.isEmpty()) {
-                    System.out.println(result.get());
-                    String res = JsonUtil.writeBalanceToJson(result.get());
-                    operation_log(result.get().getId(), GET_BALANCE);
-                    return res;
-                } else {
+            Session session = null;
+            try {
+                session = sessionFactory.openSession();
+                session.beginTransaction();
+                Query<Balance> query = session.createQuery("FROM Balance as bl WHERE bl.id =:id");
+                query.setParameter("id", id);
+                Balance balance = null;
+                try {
+                    balance = query.getSingleResult();
+                }catch (NoResultException e){
                     return JsonUtil.writeOperationResultToJson(new OperationResult()
                             .setResult(-1)
                             .setOperationMessage("Данного пользователя не существует"));
                 }
-            } else {
+                    operation_log(id, OperationsTypes.GET_BALANCE);
+                    return JsonUtil.writeBalanceToJson(balance);
+            }catch (Exception e){
                 return JsonUtil.writeOperationResultToJson(new OperationResult()
                         .setResult(-1)
-                        .setOperationMessage("Пользователей в таблице не найдено"));
+                        .setOperationError(Arrays.toString(e.getStackTrace())));
+            }finally {
+                session.close();
             }
+
         } catch (Exception e) {
             return JsonUtil.writeOperationResultToJson(new OperationResult()
                     .setResult(-1)
@@ -87,14 +81,19 @@ public class BankService {
     }
 
     public String takeMoney(Long id, Long money) {
+        if(money < 0){
+            return JsonUtil.writeOperationResultToJson(new OperationResult()
+                    .setResult(0)
+                    .setOperationMessage("Невозможно взять отрицательную сумму"));
+        }
         try {
             Balance balance = JsonUtil.jsonToBalance(getBalance(id));
             try {
                 Long newAmount = balance.getBalance() - money;
                 if (newAmount >= 0) {
                     balance.setBalance(newAmount);
-                    balanceRepository.save(balance);
                     operation_log(id, TAKE_MONEY);
+                    balanceRepository.save(balance);
                     return JsonUtil.writeOperationResultToJson(new OperationResult()
                             .setResult(1)
                             .setOperationMessage("Со счета User " + id + " снято " + money));
@@ -118,13 +117,18 @@ public class BankService {
     }
 
     public String putMoney(Long id, Long money) {
+        if(money < 0){
+            return JsonUtil.writeOperationResultToJson(new OperationResult()
+                    .setResult(0)
+                    .setOperationMessage("Невозможно добавить отрицательную сумму"));
+        }
         try {
             Balance balance = JsonUtil.jsonToBalance(getBalance(id));
             try {
                 Long newAmount = balance.getBalance() + money;
                 balance.setBalance(newAmount);
-                balanceRepository.save(balance);
                 operation_log(id, PUT_MONEY);
+                balanceRepository.save(balance);
             } catch (NullPointerException e) {
                 return JsonUtil.writeOperationResultToJson(new OperationResult()
                         .setResult(0)
@@ -140,48 +144,12 @@ public class BankService {
                     .setOperationError(Arrays.toString(e.getStackTrace())));
         }
     }
-
-    public String getOperationList(Long id) {
-        SessionFactory sessionFactory = null;
-        final StandardServiceRegistry registry = new StandardServiceRegistryBuilder()
-                .configure()
-                .build();
-        try {
-            sessionFactory = new MetadataSources(registry)
-                    .addAnnotatedClass(Operation.class)
-                    .buildMetadata()
-                    .buildSessionFactory();
-        } catch (Exception e) {
-            StandardServiceRegistryBuilder.destroy(registry);
-            return JsonUtil.writeOperationResultToJson(new OperationResult()
-                    .setResult(-1)
-                    .setOperationError(Arrays.toString(e.getStackTrace())));
-        }
-        Session session = sessionFactory.openSession();
-        session.beginTransaction();
-        CriteriaBuilder criteriaBuilder = session.getCriteriaBuilder();
-        CriteriaQuery<Operation> query = criteriaBuilder.createQuery(Operation.class);
-        Root<Operation> root = query.from(Operation.class);
-        query.select(root);
-
-        Query<Operation> quers = session.createQuery(query);
-        List<Operation> operations = quers.getResultList();
-        if (!operations.isEmpty()) {
-            operations = operations.stream().
-                    filter(operation -> operation.getUserId().
-                            equals(id)).
-                    collect(Collectors.toList());
-        }
-        if (operations.isEmpty()) {
-            return JsonUtil.writeOperationResultToJson(new OperationResult()
-                    .setResult(-1)
-                    .setOperationMessage("Не найдено пользователей с данным id"));
-        } else {
-            return JsonUtil.writeOperationListToJson(operations);
-        }
-    }
-
     public String transferMoney(Long userSenderId, Long userReceiverId, Long money) {
+        if(money < 0){
+            return JsonUtil.writeOperationResultToJson(new OperationResult()
+                    .setResult(0)
+                    .setOperationMessage("Невозможно отправить отрицательную сумму"));
+        }
         try {
             if(userSenderId.equals(userReceiverId)){
                 return JsonUtil.writeOperationResultToJson(new OperationResult()
@@ -206,8 +174,8 @@ public class BankService {
                         .setResult(0)
                         .setOperationMessage("Недостаточно средств у User " + userSenderId));
             } else if (resultSender == 1 && resultReceiver == 1) {
-                putMoney(userReceiverId, money);
                 operation_log(userSenderId, TRANSFER_MONEY);
+                putMoney(userReceiverId, money);
                 return JsonUtil.writeOperationResultToJson(new OperationResult()
                         .setResult(1)
                         .setOperationMessage("User " + userSenderId + " отправил " + money + " user " + userReceiverId));
@@ -224,12 +192,101 @@ public class BankService {
         }
     }
 
-    public void operation_log(Long userId, String operationType) {
-        Operation operation = new Operation();
+    public void operation_log(Long userId, OperationsTypes operationsTypes) {
+        UserOperation operation = new UserOperation();
         operation.setUserId(userId);
-        operation.setOperationType(operationType);
+        operation.setOperationTypeName(operationsTypes.getOperationTypeName());
+        operation.setOperationTypeNumber(operationsTypes.getOperationTypeNumber());
         operation.setTimeStamp(new Timestamp(System.currentTimeMillis()));
         operationsRepository.save(operation);
     }
+    public String getOperationList(Long userId, String fromStringDate, String toStringDate){
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+        Date fromDate;
+        Date toDate;
+        Timestamp fromTimestamp = null;
+        Timestamp toTimestamp = null;
+
+        if(fromStringDate != null && toStringDate != null){
+            try {
+                fromDate = dateFormat.parse(fromStringDate);
+                toDate = dateFormat.parse(toStringDate);
+                fromTimestamp = new Timestamp(fromDate.getTime());
+                toTimestamp = new Timestamp(toDate.getTime());
+            } catch (ParseException e) {
+                return JsonUtil.writeOperationResultToJson(new OperationResult()
+                        .setResult(-1)
+                        .setOperationMessage("Возникла ошибка с извлечением даты начала и/или окончания")
+                        .setOperationError(Arrays.toString(e.getStackTrace())));
+            }
+        } else if (toStringDate == null && fromStringDate != null) {
+            try {
+                fromDate = dateFormat.parse(fromStringDate);
+                fromTimestamp = new Timestamp(fromDate.getTime());
+            } catch (ParseException e) {
+                return JsonUtil.writeOperationResultToJson(new OperationResult()
+                        .setResult(-1)
+                        .setOperationMessage("Возникла ошибка с извлечением даты начала")
+                        .setOperationError(Arrays.toString(e.getStackTrace())));
+            }
+        } else if (toStringDate != null){
+            try {
+                toDate = dateFormat.parse(toStringDate);
+                toTimestamp = new Timestamp(toDate.getTime());
+            } catch (ParseException e) {
+                return JsonUtil.writeOperationResultToJson(new OperationResult()
+                        .setResult(-1)
+                        .setOperationMessage("Возникла ошибка с извлечением даты окончания")
+                        .setOperationError(Arrays.toString(e.getStackTrace())));
+            }
+        }
+
+        if(fromTimestamp != null && toTimestamp != null && fromTimestamp.after(toTimestamp) ){
+            return JsonUtil.writeOperationResultToJson(new OperationResult()
+                    .setResult(-1)
+                    .setOperationMessage("Дата начала не может быть больше даты окончания"));
+        }
+        SessionFactory sessionFactory = null;
+        final StandardServiceRegistry registry = new StandardServiceRegistryBuilder()
+                .configure()
+                .build();
+        try {
+            sessionFactory = new MetadataSources(registry)
+                    .addAnnotatedClass(UserOperation.class)
+                    .buildMetadata()
+                    .buildSessionFactory();
+        } catch (Exception e) {
+            StandardServiceRegistryBuilder.destroy(registry);
+        }
+        Session session = sessionFactory.openSession();
+        session.beginTransaction();
+        List<UserOperation> userOperationList;
+        String idQuery = "FROM UserOperation as pl WHERE pl.userId =:id ";
+        if(fromTimestamp != null && toTimestamp != null){
+            Query<UserOperation> query = session.createQuery(idQuery + "AND pl.timeStamp > :fromTimestamp AND pl.timeStamp < :toTimestamp");
+            query.setParameter("id", userId).
+                    setParameter("fromTimestamp", fromTimestamp)
+                    .setParameter("toTimestamp", toTimestamp);
+            userOperationList = query.list();
+        } else if (fromTimestamp != null) {
+            Query<UserOperation> query = session.createQuery(idQuery + "AND pl.timeStamp > :fromTimestamp");
+            query.setParameter("id", userId).
+                    setParameter("fromTimestamp", fromTimestamp);
+            userOperationList = query.list();
+        } else if(toTimestamp != null){
+            Query<UserOperation> query = session.createQuery(idQuery + "AND pl.timeStamp < :toTimestamp");
+            query.setParameter("id", userId).
+                    setParameter("toTimestamp", toTimestamp);
+            userOperationList = query.list();
+        }else {
+            Query<UserOperation> query = session.createQuery(idQuery);
+            query.setParameter("id", userId);
+            userOperationList = query.list();
+        }
+        session.getTransaction().commit();
+        return JsonUtil.writeOperationListToJson(userOperationList);
+
+    }
+
 
 }

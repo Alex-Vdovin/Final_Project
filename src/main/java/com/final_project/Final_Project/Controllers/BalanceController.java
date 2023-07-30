@@ -1,14 +1,12 @@
 package com.final_project.Final_Project.Controllers;
 
 import com.final_project.Final_Project.Services.BankService;
-import com.final_project.Final_Project.UtilityClasses.JsonUtil;
-import com.final_project.Final_Project.entity.Balance;
-import com.final_project.Final_Project.repository.BalanceRepository;
-import com.final_project.Final_Project.repository.OperationsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
+import java.sql.Timestamp;
+
+import static com.final_project.Final_Project.enums.OperationsTypes.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -45,9 +43,11 @@ public class BalanceController {
 
     @RequestMapping("/getOperationList")
     @ResponseBody
-    String getOperationList(@RequestParam(value = "id") Long id) {
-        return bankService.getOperationList(id);
-    }
+    String getOperationList(@RequestParam(value = "id") Long id,
+                @RequestParam (value = "fromDate", required = false) String fromDate,
+                @RequestParam(value = "toDate", required = false) String toDate){
 
+        return bankService.getOperationList(id, fromDate, toDate);
+    }
 
 }
