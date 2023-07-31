@@ -2,11 +2,8 @@ package com.final_project.Final_Project.Controllers;
 
 import com.final_project.Final_Project.Services.BankService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-
-import java.sql.Timestamp;
-
-import static com.final_project.Final_Project.enums.OperationsTypes.*;
 
 @RestController
 @RequiredArgsConstructor

@@ -1,5 +1,8 @@
 package com.final_project.Final_Project.UtilityClasses;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.final_project.Final_Project.entity.Balance;
 import com.final_project.Final_Project.entity.UserOperation;
 import com.google.gson.Gson;
@@ -29,5 +32,8 @@ public class JsonUtil {
 
     public static String writeOperationListToJson(List<UserOperation> operationList) {
         return new GsonBuilder().setPrettyPrinting().create().toJson(operationList);
+    }
+    public static List<UserOperation> jsonToOperationList(String json) throws JsonProcessingException {
+        return new ObjectMapper().readValue(json, new TypeReference<List<UserOperation>>() {});
     }
 }
