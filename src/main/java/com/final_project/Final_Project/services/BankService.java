@@ -1,13 +1,14 @@
-package com.final_project.Final_Project.Services;
+package com.final_project.Final_Project.services;
 
-import com.final_project.Final_Project.UtilityClasses.JsonUtil;
-import com.final_project.Final_Project.UtilityClasses.OperationResult;
+import com.final_project.Final_Project.utilityClasses.JsonUtil;
+import com.final_project.Final_Project.utilityClasses.OperationResult;
 import com.final_project.Final_Project.entity.Balance;
+import com.final_project.Final_Project.entity.TransferOperation;
 import com.final_project.Final_Project.entity.UserOperation;
 import com.final_project.Final_Project.enums.OperationsTypes;
 import com.final_project.Final_Project.repository.BalanceRepository;
 import com.final_project.Final_Project.repository.OperationsRepository;
-import lombok.AllArgsConstructor;
+import com.final_project.Final_Project.repository.TransferOperationsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,8 @@ public class BankService {
     private final BalanceRepository balanceRepository;
     @Autowired
     private final OperationsRepository operationsRepository;
+    @Autowired
+    private final TransferOperationsRepository transferOperationsRepository;
 
     public String getBalance(Long id) {
         if (balanceRepository.findById(id).isPresent()) {
@@ -119,6 +122,7 @@ public class BankService {
         if (JsonUtil.jsonToOperationResult(takeMoneyOperation).getResult() == 1) {
             operation_log(userSenderId, TRANSFER_MONEY);
             putMoney(userReceiverId, money);
+            transfer_log(userSenderId, userReceiverId, money);
             return JsonUtil.writeOperationResultToJson(new OperationResult()
                     .setResult(1)
                     .setOperationMessage("User " + userSenderId + " отправил " + money + " user " + userReceiverId));
@@ -136,6 +140,14 @@ public class BankService {
         operation.setOperationTypeNumber(operationsTypes.getOperationTypeNumber());
         operation.setTimeStamp(new Timestamp(System.currentTimeMillis()));
         operationsRepository.save(operation);
+    }
+    public void transfer_log(Long userSenderId, Long userReceiverId, Long transferMoney){
+        TransferOperation transferOperation = new TransferOperation();
+        transferOperation.setUserSenderId(userSenderId);
+        transferOperation.setUserReceiverId(userReceiverId);
+        transferOperation.setTransferMoney(transferMoney);
+        transferOperation.setTransferOperationTime(new Timestamp(System.currentTimeMillis()));
+        transferOperationsRepository.save(transferOperation);
     }
 
     public String getOperationList(Long userId, String fromStringDate, String toStringDate) {
@@ -194,10 +206,11 @@ public class BankService {
                         .setOperationMessage("Возникла ошибка с извлечением даты окончания")
                         .setOperationError(Arrays.toString(e.getStackTrace())));
             }
+        }else {
+            return JsonUtil.writeOperationListToJson(operationsRepository.findAll().stream()
+                    .filter(op -> op.getUserId().equals(userId))
+                    .collect(Collectors.toList()));
         }
-        return JsonUtil.writeOperationResultToJson(new OperationResult()
-                .setResult(-1)
-                .setOperationMessage("Произошла ошибка"));
     }
 
 }

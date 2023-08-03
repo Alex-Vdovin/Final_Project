@@ -21,4 +21,5 @@ public class UserOperation {
     String operationTypeName;
     @Column(name = "operation_time")
     Timestamp timeStamp;
+
 }

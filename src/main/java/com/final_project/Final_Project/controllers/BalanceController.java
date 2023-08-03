@@ -1,8 +1,7 @@
-package com.final_project.Final_Project.Controllers;
+package com.final_project.Final_Project.controllers;
 
-import com.final_project.Final_Project.Services.BankService;
+import com.final_project.Final_Project.services.BankService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController

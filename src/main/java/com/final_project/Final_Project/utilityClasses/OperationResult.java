@@ -1,4 +1,6 @@
-package com.final_project.Final_Project.UtilityClasses;
+package com.final_project.Final_Project.utilityClasses;
+
+import java.util.Objects;
 
 public class OperationResult {
     int result;
@@ -49,5 +51,13 @@ public class OperationResult {
     public OperationResult setOperationError(String operationError) {
         this.operationError = operationError;
         return this;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        OperationResult that = (OperationResult) o;
+        return result == that.result && Objects.equals(operationMessage, that.operationMessage) && Objects.equals(operationError, that.operationError);
     }
 }
